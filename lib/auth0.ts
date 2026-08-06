@@ -48,6 +48,26 @@ const MY_ORG_SCOPES = [
   "read:my_org:identity_providers_provisioning",
   "delete:my_org:identity_providers_provisioning",
   "read:my_org:configuration",
+  "read:my_org:member_invitations",
+  "delete:my_org:member_invitations",
+  "create:my_org:member_invitations",
+  "read:my_org:member_roles",
+  "delete:my_org:member_roles",
+  "create:my_org:member_roles",
+  "read:my_org:members",
+  "delete:my_org:memberships",
+]
+
+const MY_ACCOUNT_SCOPES = [
+  "openid",
+  "profile",
+  "email",
+  "offline_access",
+  "create:me:authentication_methods",
+  "read:me:authentication_methods",
+  "update:me:authentication_methods",
+  "delete:me:authentication_methods",
+  "read:me:factors",
 ]
 
 export const appClient = new Auth0Client({
@@ -58,7 +78,12 @@ export const appClient = new Auth0Client({
   secret: process.env.SESSION_ENCRYPTION_SECRET,
   authorizationParameters: {
     audience: `https://${process.env.NEXT_PUBLIC_AUTH0_DOMAIN}/my-org/`,
-    scope: MY_ORG_SCOPES.join(" "),
+    scope: {
+      [`https://${process.env.NEXT_PUBLIC_AUTH0_DOMAIN}/me/`]:
+        MY_ACCOUNT_SCOPES.join(" "),
+      [`https://${process.env.NEXT_PUBLIC_AUTH0_DOMAIN}/my-org/`]:
+        MY_ORG_SCOPES.join(" "),
+    },
   },
   httpTimeout: 20000, // 20 seconds
   async beforeSessionSaved(session) {

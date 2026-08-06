@@ -14,6 +14,7 @@ import {
   checkDashboardClientChanges,
   checkManagementClientChanges,
   checkManagementClientGrantChanges,
+  checkMyAccountClientGrantChanges,
   checkMyOrgClientGrantChanges,
 } from "./clients.mjs"
 import {
@@ -22,7 +23,9 @@ import {
 } from "./connections.mjs"
 import { checkUserAttributeProfileChanges } from "./profiles.mjs"
 import {
+  checkMyAccountResourceServerChanges,
   checkMyOrgResourceServerChanges,
+  getAvailableMyAccountScopes,
   MYORG_API_SCOPES,
 } from "./resource-servers.mjs"
 import { checkAdminRoleChanges, checkMemberRoleChanges } from "./roles.mjs"
@@ -92,6 +95,14 @@ export async function discoverExistingResources(domain) {
     spinner.succeed("Resource discovery complete")
     return resources
   } catch (e) {
+    // Handle timeout errors with a helpful message
+    if (e.timedOut) {
+      spinner.fail("Resource discovery timed out")
+      console.error("\n❌ The Auth0 CLI is not responding.")
+      console.error("   This usually means your session has expired.")
+      console.error("   Please run 'auth0 login' and try again.\n")
+      process.exit(1)
+    }
     spinner.fail("Failed to discover existing resources")
     console.error(e)
     process.exit(1)
@@ -100,6 +111,8 @@ export async function discoverExistingResources(domain) {
 
 /**
  * Check all resources and build comprehensive change plan
+ * @param {object} resources - Discovered resources from the tenant
+ * @param {string} domain - The tenant domain
  */
 export async function buildChangePlan(resources, domain) {
   const spinner = ora({
@@ -108,6 +121,14 @@ export async function buildChangePlan(resources, domain) {
 
   try {
     const plan = createChangePlan()
+
+    // Get available My Account API scopes from the tenant
+    const myAccountApiScopes = getAvailableMyAccountScopes(
+      resources.resourceServers,
+      domain
+    )
+    // Store scopes in plan for later use during apply phase
+    plan.myAccountApiScopes = myAccountApiScopes
 
     // Profiles (needed first for Dashboard Client)
     plan.connectionProfile = checkConnectionProfileChanges(
@@ -130,7 +151,10 @@ export async function buildChangePlan(resources, domain) {
     plan.clients.dashboard = await checkDashboardClientChanges(
       resources.clients,
       connectionProfileId,
-      userAttributeProfileId
+      userAttributeProfileId,
+      domain,
+      MYORG_API_SCOPES,
+      myAccountApiScopes
     )
 
     // Get client IDs (either existing or will be created)
@@ -146,8 +170,13 @@ export async function buildChangePlan(resources, domain) {
       domain
     )
 
-    // Resource Server
+    // Resource Servers
     plan.resourceServer = checkMyOrgResourceServerChanges(
+      resources.resourceServers,
+      domain
+    )
+
+    plan.myAccountResourceServer = checkMyAccountResourceServerChanges(
       resources.resourceServers,
       domain
     )
@@ -160,6 +189,14 @@ export async function buildChangePlan(resources, domain) {
       MYORG_API_SCOPES
     )
 
+    // My Account Client Grant (Dashboard to My Account API)
+    plan.clientGrants.myAccount = checkMyAccountClientGrantChanges(
+      dashboardClientId,
+      resources.clientGrants,
+      domain,
+      myAccountApiScopes
+    )
+
     // Connection
     plan.connection = checkDatabaseConnectionChanges(
       resources.connections,
@@ -167,7 +204,7 @@ export async function buildChangePlan(resources, domain) {
       managementClientId
     )
 
-    // Roles (admin role check makes API call to get current permissions)
+    // Roles
     plan.roles.admin = await checkAdminRoleChanges(
       resources.roles,
       domain,
@@ -239,10 +276,12 @@ export function displayChangePlan(plan) {
   categorize(plan.clients.dashboard)
   categorize(plan.clientGrants.management)
   categorize(plan.clientGrants.myOrg)
+  categorize(plan.clientGrants.myAccount)
   categorize(plan.connection)
   categorize(plan.connectionProfile)
   categorize(plan.userAttributeProfile)
   categorize(plan.resourceServer)
+  categorize(plan.myAccountResourceServer)
   categorize(plan.roles.admin)
   categorize(plan.roles.member)
   categorize(plan.actions.securityPolicies)
@@ -258,6 +297,10 @@ export function displayChangePlan(plan) {
   console.log("\n" + "=".repeat(80))
   console.log("BOOTSTRAP PLAN")
   console.log("=".repeat(80))
+
+  console.log("\n🎯 Features to configure:")
+  console.log("   • Organization Management (My Organization API)")
+  console.log("   • User Self-Service (My Account API)")
 
   // Check if there are no changes needed
   if (creates.length === 0 && updates.length === 0) {
@@ -426,9 +469,11 @@ export function displayChangePlan(plan) {
     showDetails(plan.clients.dashboard, "Dashboard Client")
     showDetails(plan.clientGrants.management, "Management API Client Grant")
     showDetails(plan.clientGrants.myOrg, "My Org API Client Grant")
+    showDetails(plan.clientGrants.myAccount, "My Account API Client Grant")
     showDetails(plan.connection, "Database Connection")
     showDetails(plan.connectionProfile, "Connection Profile")
     showDetails(plan.resourceServer, "My Organization API")
+    showDetails(plan.myAccountResourceServer, "My Account API")
     showDetails(plan.roles.admin, "Admin Role")
     showDetails(plan.roles.member, "Member Role")
     showDetails(plan.tenantConfig.mfaFactors, "MFA Factors")

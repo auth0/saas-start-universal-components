@@ -10,9 +10,13 @@ export const roles = {
 export type Role = keyof typeof roles
 
 export function getRole(user: User) {
-  // we only allow a single role to be assigned to a user
-  const role = (user[ROLES_CLAIM_KEY] as string[])?.[0]
+  const userRoles = user[ROLES_CLAIM_KEY] as string[] | undefined
+
+  // if user has admin role, return admin (takes precedence)
+  if (userRoles?.includes("admin")) {
+    return "admin"
+  }
 
   // if no role is assigned, set them to the default member role
-  return role ?? "member"
+  return userRoles?.[0] ?? "member"
 }

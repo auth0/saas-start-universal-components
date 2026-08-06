@@ -235,10 +235,11 @@ async function updateAction(actionId, code, secrets, dependencies = []) {
 
     // Update secrets if provided
     if (secrets && secrets.length > 0) {
-      for (const secret of secrets) {
+      const mappedSecrets = secrets.map((secret) => {
         const [key, value] = secret.split("=")
-        await $`auth0 api patch actions/actions/${actionId}/secrets --data ${JSON.stringify({ secrets: [{ name: key, value }] })}`
-      }
+        return { name: key, value }
+      })
+      await $`auth0 api patch actions/actions/${actionId} --data ${JSON.stringify({ secrets: mappedSecrets })}`
     }
 
     // Update dependencies if provided

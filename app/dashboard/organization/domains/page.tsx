@@ -7,11 +7,13 @@ export default function Domains() {
     <div className="space-y-2 p-6">
       <DomainTable
         customMessages={{
-          header: {
-            title: "Domains",
-            description: "Configure Domains for your organization.",
-            create_button_text: "Add new Domain",
-          },
+          domain_table: {
+            header: {
+              title: "Domains",
+              description: "Configure Domains for your organization.",
+              create_button_text: "Add new Domain",
+            }
+          }
         }}
       />
     </div>

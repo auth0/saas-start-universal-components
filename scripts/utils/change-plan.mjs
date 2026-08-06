@@ -18,11 +18,13 @@ export function createChangePlan() {
     clientGrants: {
       management: null,
       myOrg: null,
+      myAccount: null,
     },
     connection: null,
     connectionProfile: null,
     userAttributeProfile: null,
     resourceServer: null,
+    myAccountResourceServer: null,
     roles: {
       admin: null,
       member: null,
