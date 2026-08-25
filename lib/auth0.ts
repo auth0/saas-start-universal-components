@@ -48,6 +48,7 @@ const MY_ORG_SCOPES = [
   "read:my_org:identity_providers_provisioning",
   "delete:my_org:identity_providers_provisioning",
   "read:my_org:configuration",
+  "read:my_org:user_stores",
   "read:my_org:member_invitations",
   "delete:my_org:member_invitations",
   "create:my_org:member_invitations",
