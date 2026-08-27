@@ -10,7 +10,6 @@
     "auth0:bootstrap": "node ./scripts/bootstrap.mjs"
   },
   "overrides": {
-    "@auth0/myorganization-js": "file:./auth0-myorganization-js-1.1.0.tgz",
     "@auth0/universal-components-core": "file:./auth0-universal-components-core-3.2.0.tgz"
   },
   "dependencies": {
