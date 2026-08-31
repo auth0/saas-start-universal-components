@@ -10,7 +10,7 @@
     "auth0:bootstrap": "node ./scripts/bootstrap.mjs"
   },
   "dependencies": {
-    "@auth0/nextjs-auth0": "^4.12.0",
+    "@auth0/nextjs-auth0": "^4.27.0",
     "@auth0/universal-components-core": "file:./auth0-universal-components-core-3.2.0.tgz",
     "@auth0/universal-components-react": "file:./auth0-universal-components-react-3.2.0.tgz",
     "@radix-ui/react-alert-dialog": "^1.0.5",
