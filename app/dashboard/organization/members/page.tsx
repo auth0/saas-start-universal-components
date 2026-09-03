@@ -10,7 +10,7 @@ export default function Members() {
       <OrganizationMemberManagement
         viewMemberDetailsAction={{
           onAfter: ({ userId, tab }) => {
-            router.push(`/dashboard/organization/members${userId}${tab ? `?tab=${tab}` : ''}`);
+            router.push(`/dashboard/organization/members/${userId}${tab ? `?tab=${tab}` : ''}`);
           },
         }}
       />
