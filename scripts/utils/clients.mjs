@@ -222,7 +222,8 @@ export async function checkDashboardClientChanges(
     clientToCheck.my_organization_configuration.user_attribute_profile_id !==
       userAttributeProfileId ||
     clientToCheck.my_organization_configuration.invitation_landing_client_id !==
-      clientToCheck.client_id
+      clientToCheck.client_id ||
+    !clientToCheck.my_organization_configuration.third_party_client_access
 
   const organizationSettingsNeedUpdate =
     clientToCheck.organization_require_behavior !== "post_login_prompt" ||
@@ -660,6 +661,10 @@ export async function applyDashboardClientChanges(
               "oidc",
               "samlp",
             ],
+            third_party_client_access: {
+              default_value: "block",
+              allowed_values: ["block", "allow"],
+            },
           },
         }),
       ];
@@ -683,6 +688,10 @@ export async function applyDashboardClientChanges(
             "oidc",
             "samlp",
           ],
+          third_party_client_access: {
+            default_value: "block",
+            allowed_values: ["block", "allow"],
+          },
         },
       })
 
@@ -746,6 +755,10 @@ export async function applyDashboardClientChanges(
             "oidc",
             "samlp",
           ],
+          third_party_client_access: {
+            default_value: "block",
+            allowed_values: ["block", "allow"],
+          },
         }
       }
 

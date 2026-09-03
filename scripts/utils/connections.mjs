@@ -85,6 +85,12 @@ export function checkConnectionProfileChanges(existingConnectionProfiles) {
     },
     connection_name_prefix_template: "con-{org_id}-",
     enabled_features: ["scim", "universal_logout"],
+    cross_app_access_resource_app: {
+      status: {
+        default_value: "disabled",
+        allowed_values: ["disabled", "enabled"],
+      },
+    },
   }
 
   if (!existingProfile) {
@@ -95,6 +101,16 @@ export function checkConnectionProfileChanges(existingConnectionProfiles) {
       config: desiredConfig,
     })
   }
+
+  // Check if cross_app_access_resource_app needs update
+  const crossAppAccessNeedsUpdate =
+    !existingProfile.cross_app_access_resource_app ||
+    existingProfile.cross_app_access_resource_app?.status?.default_value !==
+      desiredConfig.cross_app_access_resource_app.status.default_value ||
+    !arraysEqual(
+      existingProfile.cross_app_access_resource_app?.status?.allowed_values || [],
+      desiredConfig.cross_app_access_resource_app.status.allowed_values
+    )
 
   // Check if the profile needs updates
   const needsUpdate =
@@ -107,7 +123,8 @@ export function checkConnectionProfileChanges(existingConnectionProfiles) {
     !arraysEqual(
       existingProfile.enabled_features || [],
       desiredConfig.enabled_features
-    )
+    ) ||
+    crossAppAccessNeedsUpdate
 
   if (needsUpdate) {
     const changes = []
@@ -136,6 +153,9 @@ export function checkConnectionProfileChanges(existingConnectionProfiles) {
       )
     ) {
       changes.push("Update enabled_features")
+    }
+    if (crossAppAccessNeedsUpdate) {
+      changes.push("Update cross_app_access_resource_app")
     }
 
     return createChangeItem(ChangeAction.UPDATE, {
