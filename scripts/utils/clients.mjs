@@ -223,7 +223,10 @@ export async function checkDashboardClientChanges(
       userAttributeProfileId ||
     clientToCheck.my_organization_configuration.invitation_landing_client_id !==
       clientToCheck.client_id ||
-    !clientToCheck.my_organization_configuration.third_party_client_access
+    !clientToCheck.my_organization_configuration.third_party_client_access ||
+    clientToCheck.my_organization_configuration.third_party_client_access.default_value !== "block" ||
+    JSON.stringify([...(clientToCheck.my_organization_configuration.third_party_client_access.allowed_values || [])].sort()) !==
+      JSON.stringify(["allow", "block"])
 
   const organizationSettingsNeedUpdate =
     clientToCheck.organization_require_behavior !== "post_login_prompt" ||
