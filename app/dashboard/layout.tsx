@@ -8,7 +8,7 @@ import { appClient, managementClient } from "@/lib/auth0"
 import { Button } from "@/components/ui/button"
 import { Auth0Logo } from "@/components/auth0-logo"
 import { ModeToggle } from "@/components/mode-toggle"
-import { OrganizationSwitcher } from "@/components/organization-switcher"
+import { NavOrganizationSwitcher } from "@/components/nav-organization-switcher"
 import { UserNav } from "@/components/user-nav"
 
 export default async function DashboardLayout({
@@ -32,18 +32,17 @@ export default async function DashboardLayout({
     redirect("/onboarding/create")
   }
 
+  const currentOrganization = orgs.find((o) => o.id === session.user.org_id)
+
   return (
     <ClientProvider>
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-2 py-4 sm:px-8">
         <div className="flex items-center space-x-6">
-          <OrganizationSwitcher
-            organizations={orgs.map((o) => ({
-              id: o.id,
-              slug: o.name,
-              displayName: o.display_name!,
-              logoUrl: o.branding?.logo_url,
-            }))}
-            currentOrgId={session.user.org_id!}
+          <NavOrganizationSwitcher
+            currentOrganizationId={session.user.org_id!}
+            currentOrganizationName={
+              currentOrganization?.display_name || currentOrganization?.name
+            }
           />
 
           <Link
@@ -51,6 +50,13 @@ export default async function DashboardLayout({
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             Home
+          </Link>
+
+          <Link
+            href="/dashboard/organizations"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Organizations
           </Link>
         </div>
 

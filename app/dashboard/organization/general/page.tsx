@@ -12,7 +12,16 @@ export default function GeneralSettings() {
         description="Update your organization's general settings."
       />
 
-      <OrganizationDetailsEdit hideHeader={true} />
+      <OrganizationDetailsEdit
+        hideHeader={true}
+        deleteAction={{
+          // The session belongs to the deleted organization, so sign out.
+          onAfter: () => {
+            window.location.assign("/auth/logout")
+            return true
+          },
+        }}
+      />
     </div>
   )
 }

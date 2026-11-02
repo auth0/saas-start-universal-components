@@ -30,6 +30,7 @@ const MY_ORG_SCOPES = [
   "offline_access",
   "read:my_org:details",
   "update:my_org:details",
+  "delete:my_org:organizations",
   "create:my_org:identity_providers",
   "read:my_org:identity_providers",
   "update:my_org:identity_providers",
@@ -70,6 +71,8 @@ const MY_ACCOUNT_SCOPES = [
   "update:me:authentication_methods",
   "delete:me:authentication_methods",
   "read:me:factors",
+  "read:me:organizations",
+  "create:me:organizations",
 ]
 
 export const appClient = new Auth0Client({
