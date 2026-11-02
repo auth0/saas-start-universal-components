@@ -5,9 +5,11 @@ import { auth0ApiCall } from "./auth0-api.mjs"
 import { ChangeAction, createChangeItem } from "./change-plan.mjs"
 
 // Constants
+// My Organization API scopes for the API, the Dashboard client's grant and its refresh token policy.
 export const MYORG_API_SCOPES = [
   "read:my_org:details",
   "update:my_org:details",
+  "delete:my_org:organizations",
   "create:my_org:identity_providers",
   "read:my_org:identity_providers",
   "update:my_org:identity_providers",
@@ -38,7 +40,16 @@ export const MYORG_API_SCOPES = [
   "delete:my_org:memberships",
 ]
 
-// My Account API Scopes - desired scopes for MFA management
+// Scopes the Organization Super-Admin role holds, which the admin role created here must not get.
+// The admin role represents a typical organization admin, not a super-admin.
+export const SUPER_ADMIN_ONLY_SCOPES = ["delete:my_org:organizations"]
+
+// My Organization API permissions for the admin role.
+export const ADMIN_ROLE_SCOPES = MYORG_API_SCOPES.filter(
+  (scope) => !SUPER_ADMIN_ONLY_SCOPES.includes(scope)
+)
+
+// My Account API Scopes - desired scopes for MFA management and the user's organizations
 // Not all tenants may have these scopes available on their My Account API
 export const MYACCOUNT_API_SCOPES_DESIRED = [
   "create:me:authentication_methods",
@@ -46,6 +57,8 @@ export const MYACCOUNT_API_SCOPES_DESIRED = [
   "delete:me:authentication_methods",
   "update:me:authentication_methods",
   "read:me:factors",
+  "read:me:organizations",
+  "create:me:organizations",
 ]
 
 /**

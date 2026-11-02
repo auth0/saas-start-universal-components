@@ -3,6 +3,7 @@ import ora from "ora"
 
 import { auth0ApiCall } from "./auth0-api.mjs"
 import { ChangeAction, createChangeItem } from "./change-plan.mjs"
+import { SUPER_ADMIN_ONLY_SCOPES } from "./resource-servers.mjs"
 
 // ============================================================================
 // CHECK FUNCTIONS - Determine what changes are needed
@@ -48,6 +49,15 @@ export async function checkAdminRoleChanges(
     (scope) => !existingPermNames.has(scope)
   )
 
+  // Permissions are only ever added, so super-admin scopes granted earlier are reported, not removed.
+  const superAdminPerms = SUPER_ADMIN_ONLY_SCOPES.filter((scope) =>
+    existingPermNames.has(scope)
+  )
+  const note =
+    superAdminPerms.length > 0
+      ? `The admin role has super-admin permission(s) the bootstrap no longer grants: ${superAdminPerms.join(", ")}. Remove them from the role if admins should not have them.`
+      : undefined
+
   if (missingPerms.length > 0) {
     return createChangeItem(ChangeAction.UPDATE, {
       resource: "Admin Role",
@@ -58,6 +68,7 @@ export async function checkAdminRoleChanges(
       },
       domain,
       summary: `Add ${missingPerms.length} permission(s)`,
+      note,
     })
   }
 
@@ -65,6 +76,7 @@ export async function checkAdminRoleChanges(
     resource: "Admin Role",
     name: "admin",
     existing: existingRole,
+    note,
   })
 }
 

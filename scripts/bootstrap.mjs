@@ -25,6 +25,7 @@ import {
 } from "./utils/discovery.mjs"
 import { writeEnvFile } from "./utils/env-writer.mjs"
 import { confirmWithUser } from "./utils/helpers.mjs"
+import { applyOrganizationTemplateChanges } from "./utils/organization-templates.mjs"
 import { applyUserAttributeProfileChanges } from "./utils/profiles.mjs"
 import {
   applyMyAccountResourceServerChanges,
@@ -231,7 +232,16 @@ async function main() {
   const memberRole = await applyMemberRoleChanges(plan.roles.member)
   console.log("")
 
-  // 7j. Actions
+  // 7j. Default Organization Profile (needs the admin role and both profiles)
+  console.log("Configuring Organization Profile...")
+  await applyOrganizationTemplateChanges(plan.organizationTemplate, {
+    connectionProfileId: connectionProfile.id,
+    userAttributeProfileId: userAttributeProfile.id,
+    adminRoleId: adminRole.id,
+  })
+  console.log("")
+
+  // 7k. Actions
   console.log("Configuring Actions...")
   const securityPoliciesAction = await applySecurityPoliciesActionChanges(
     plan.actions.securityPolicies,
@@ -249,7 +259,7 @@ async function main() {
   )
   console.log("")
 
-  // 7k. Action Trigger Bindings
+  // 7l. Action Trigger Bindings
   console.log("Configuring Action Trigger Bindings...")
   await applyActionTriggerBindingsChanges(
     plan.actions.bindings,
@@ -300,6 +310,7 @@ function checkForChanges(plan) {
     plan.myAccountResourceServer.action !== "skip" ||
     plan.roles.admin.action !== "skip" ||
     plan.roles.member.action !== "skip" ||
+    plan.organizationTemplate.action !== "skip" ||
     plan.actions.securityPolicies.action !== "skip" ||
     plan.actions.addDefaultRole.action !== "skip" ||
     plan.actions.addRoleToTokens.action !== "skip" ||
