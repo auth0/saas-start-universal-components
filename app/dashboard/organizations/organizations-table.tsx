@@ -17,8 +17,8 @@ export function OrganizationsTable({
 }: OrganizationsTableProps) {
   const router = useRouter()
 
-  // Editing and deleting both live in the settings of the signed-in organization,
-  // so another organization is opened by signing in to it first.
+  // Editing lives in the settings of the signed-in organization, so another
+  // organization is opened by signing in to it first.
   const openSettings = (organization: UserOrganization) => {
     if (organization.id === currentOrganizationId) {
       router.push(SETTINGS_PATH)
@@ -30,7 +30,15 @@ export function OrganizationsTable({
   return (
     <OrganizationTable
       onEditOrganization={openSettings}
-      onDeleteOrganization={openSettings}
+      currentOrganizationId={currentOrganizationId}
+      deleteAction={{
+        // The session belonged to the deleted organization, so sign in again and
+        // pick one of the remaining organizations.
+        onAfter: () => {
+          window.location.assign("/auth/login?returnTo=/dashboard")
+          return true
+        },
+      }}
       onCreateOrganization={() => router.push("/dashboard/organizations/new")}
     />
   )
