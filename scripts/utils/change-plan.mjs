@@ -29,6 +29,7 @@ export function createChangePlan() {
       admin: null,
       member: null,
     },
+    organizationTemplate: null,
     actions: {
       securityPolicies: null,
       addDefaultRole: null,

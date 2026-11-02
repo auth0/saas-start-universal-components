@@ -49,6 +49,9 @@ const BOOTSTRAP_SCOPES = [
   "read:user_attribute_profiles",
   "create:user_attribute_profiles",
   "update:user_attribute_profiles",
+  "read:organization_templates",
+  "create:organization_templates",
+  "update:organization_templates",
 ]
 
 /**

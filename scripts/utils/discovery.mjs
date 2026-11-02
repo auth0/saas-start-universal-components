@@ -21,8 +21,13 @@ import {
   checkConnectionProfileChanges,
   checkDatabaseConnectionChanges,
 } from "./connections.mjs"
+import {
+  checkOrganizationTemplateChanges,
+  fetchOrganizationTemplates,
+} from "./organization-templates.mjs"
 import { checkUserAttributeProfileChanges } from "./profiles.mjs"
 import {
+  ADMIN_ROLE_SCOPES,
   checkMyAccountResourceServerChanges,
   checkMyOrgResourceServerChanges,
   getAvailableMyAccountScopes,
@@ -91,6 +96,9 @@ export async function discoverExistingResources(domain) {
     )
     resources.userAttributeProfiles =
       userAttributeProfiles?.user_attribute_profiles || []
+
+    // Get organization templates (Organization Profiles); null when unavailable
+    resources.organizationTemplates = await fetchOrganizationTemplates()
 
     spinner.succeed("Resource discovery complete")
     return resources
@@ -208,9 +216,19 @@ export async function buildChangePlan(resources, domain) {
     plan.roles.admin = await checkAdminRoleChanges(
       resources.roles,
       domain,
-      MYORG_API_SCOPES
+      ADMIN_ROLE_SCOPES
     )
     plan.roles.member = checkMemberRoleChanges(resources.roles)
+
+    // Default Organization Profile (deletion behavior and the admin role for new organizations)
+    plan.organizationTemplate = checkOrganizationTemplateChanges(
+      resources.organizationTemplates,
+      {
+        connectionProfileId: plan.connectionProfile.existing?.id,
+        userAttributeProfileId: plan.userAttributeProfile.existing?.id,
+        adminRoleId: plan.roles.admin.existing?.id,
+      }
+    )
 
     // Get member role ID for actions
     const memberRoleId = plan.roles.member.existing?.id || "TO_BE_CREATED"
@@ -284,6 +302,7 @@ export function displayChangePlan(plan) {
   categorize(plan.myAccountResourceServer)
   categorize(plan.roles.admin)
   categorize(plan.roles.member)
+  categorize(plan.organizationTemplate)
   categorize(plan.actions.securityPolicies)
   categorize(plan.actions.addDefaultRole)
   categorize(plan.actions.addRoleToTokens)
@@ -301,6 +320,14 @@ export function displayChangePlan(plan) {
   console.log("\n🎯 Features to configure:")
   console.log("   • Organization Management (My Organization API)")
   console.log("   • User Self-Service (My Account API)")
+
+  const notes = [plan.roles.admin, plan.organizationTemplate]
+    .filter((item) => item?.note)
+    .map((item) => `${item.resource}: ${item.note}`)
+  if (notes.length > 0) {
+    console.log("\n⚠️  Notes:")
+    notes.forEach((note) => console.log(`   • ${note}`))
+  }
 
   // Check if there are no changes needed
   if (creates.length === 0 && updates.length === 0) {
@@ -476,6 +503,7 @@ export function displayChangePlan(plan) {
     showDetails(plan.myAccountResourceServer, "My Account API")
     showDetails(plan.roles.admin, "Admin Role")
     showDetails(plan.roles.member, "Member Role")
+    showDetails(plan.organizationTemplate, "Organization Profile")
     showDetails(plan.tenantConfig.mfaFactors, "MFA Factors")
 
     // Action bindings
