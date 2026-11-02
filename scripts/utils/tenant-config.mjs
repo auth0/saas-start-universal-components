@@ -160,8 +160,13 @@ export async function checkMFAFactorsChanges() {
     })
   } catch (e) {
     console.warn(`⚠️  Warning: Could not check MFA factors: ${e.message}`)
+    // The current state is unknown, so enable both; the apply step reads `updates`.
     return createChangeItem(ChangeAction.UPDATE, {
       resource: "MFA Factors",
+      updates: {
+        webauthnNeedsUpdate: true,
+        otpNeedsUpdate: true,
+      },
       summary: "Enable webauthn-roaming, OTP (couldn't verify current)",
     })
   }
