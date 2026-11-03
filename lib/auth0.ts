@@ -1,3 +1,5 @@
+import { NextResponse } from "next/server"
+import { AuthorizationError } from "@auth0/nextjs-auth0/errors"
 import { Auth0Client } from "@auth0/nextjs-auth0/server"
 import { ManagementClient } from "auth0"
 
@@ -91,6 +93,30 @@ export const appClient = new Auth0Client({
     },
   },
   httpTimeout: 20000, // 20 seconds
+  async onCallback(error, ctx) {
+    const appBaseUrl = ctx.appBaseUrl ?? process.env.APP_BASE_URL!
+
+    if (!error) {
+      return NextResponse.redirect(new URL(ctx.returnTo || "/", appBaseUrl))
+    }
+
+    // Declining the sign-in to another organization keeps the current session,
+    // so go back to the page the user came from instead of showing the error.
+    // Organization flows start from the organizations table, and the query is
+    // dropped so the declined action does not run.
+    if (
+      error instanceof AuthorizationError &&
+      error.cause?.code === "access_denied"
+    ) {
+      const returnTo = new URL(ctx.returnTo || "/", appBaseUrl)
+      const path = returnTo.pathname.startsWith("/dashboard/organization")
+        ? "/dashboard/organizations"
+        : returnTo.pathname
+      return NextResponse.redirect(new URL(path, appBaseUrl))
+    }
+
+    return new NextResponse(error.message, { status: 500 })
+  },
   async beforeSessionSaved(session) {
     // For some reason is needed to delay the session persistance
     // and custom claim to have be stored within the session
