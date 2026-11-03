@@ -115,6 +115,20 @@ export const appClient = new Auth0Client({
       return NextResponse.redirect(new URL(path, appBaseUrl))
     }
 
+    // The app requires an organization, so a user who has none left (for example
+    // after deleting their last one) is sent to create one. Auth0 only tells this
+    // apart from other invalid requests by its description.
+    if (
+      error instanceof AuthorizationError &&
+      error.cause?.code === "invalid_request" &&
+      error.cause.message?.includes("does not belong to any organization")
+    ) {
+      const params = new URLSearchParams({ returnTo: "/onboarding/create" })
+      return NextResponse.redirect(
+        new URL(`/onboarding/signup?${params}`, appBaseUrl)
+      )
+    }
+
     return new NextResponse(error.message, { status: 500 })
   },
   async beforeSessionSaved(session) {
