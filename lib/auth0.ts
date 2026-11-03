@@ -93,6 +93,13 @@ export const appClient = new Auth0Client({
     },
   },
   httpTimeout: 20000, // 20 seconds
+  session: {
+    // Rolling the session rewrites the cookie from the copy read when the
+    // request started. A background fetch (such as a prefetch) that runs while
+    // an API request rotates the refresh token would then put the old refresh
+    // token back, and its next use revokes the session. Only page loads roll it.
+    beforeSessionRolled: (req) => req.headers.get("sec-fetch-dest") !== "empty",
+  },
   async onCallback(error, ctx) {
     const appBaseUrl = ctx.appBaseUrl ?? process.env.APP_BASE_URL!
 
