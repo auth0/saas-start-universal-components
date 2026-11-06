@@ -1,3 +1,5 @@
+import { NextResponse } from "next/server"
+import { AuthorizationError } from "@auth0/nextjs-auth0/errors"
 import { Auth0Client } from "@auth0/nextjs-auth0/server"
 import { ManagementClient } from "auth0"
 
@@ -30,6 +32,7 @@ const MY_ORG_SCOPES = [
   "offline_access",
   "read:my_org:details",
   "update:my_org:details",
+  "delete:my_org:organizations",
   "create:my_org:identity_providers",
   "read:my_org:identity_providers",
   "update:my_org:identity_providers",
@@ -70,6 +73,8 @@ const MY_ACCOUNT_SCOPES = [
   "update:me:authentication_methods",
   "delete:me:authentication_methods",
   "read:me:factors",
+  "read:me:organizations",
+  "create:me:organizations",
 ]
 
 export const appClient = new Auth0Client({
@@ -88,6 +93,51 @@ export const appClient = new Auth0Client({
     },
   },
   httpTimeout: 20000, // 20 seconds
+  session: {
+    // Rolling the session rewrites the cookie from the copy read when the
+    // request started. A background fetch (such as a prefetch) that runs while
+    // an API request rotates the refresh token would then put the old refresh
+    // token back, and its next use revokes the session. Only page loads roll it.
+    beforeSessionRolled: (req) => req.headers.get("sec-fetch-dest") !== "empty",
+  },
+  async onCallback(error, ctx) {
+    const appBaseUrl = ctx.appBaseUrl ?? process.env.APP_BASE_URL!
+
+    if (!error) {
+      return NextResponse.redirect(new URL(ctx.returnTo || "/", appBaseUrl))
+    }
+
+    // Declining the sign-in to another organization keeps the current session,
+    // so go back to the page the user came from instead of showing the error.
+    // Organization flows start from the organizations table, and the query is
+    // dropped so the declined action does not run.
+    if (
+      error instanceof AuthorizationError &&
+      error.cause?.code === "access_denied"
+    ) {
+      const returnTo = new URL(ctx.returnTo || "/", appBaseUrl)
+      const path = returnTo.pathname.startsWith("/dashboard/organization")
+        ? "/dashboard/organizations"
+        : returnTo.pathname
+      return NextResponse.redirect(new URL(path, appBaseUrl))
+    }
+
+    // The app requires an organization, so a user who has none left (for example
+    // after deleting their last one) is sent to create one. Auth0 only tells this
+    // apart from other invalid requests by its description.
+    if (
+      error instanceof AuthorizationError &&
+      error.cause?.code === "invalid_request" &&
+      error.cause.message?.includes("does not belong to any organization")
+    ) {
+      const params = new URLSearchParams({ returnTo: "/onboarding/create" })
+      return NextResponse.redirect(
+        new URL(`/onboarding/signup?${params}`, appBaseUrl)
+      )
+    }
+
+    return new NextResponse(error.message, { status: 500 })
+  },
   async beforeSessionSaved(session) {
     // For some reason is needed to delay the session persistance
     // and custom claim to have be stored within the session
