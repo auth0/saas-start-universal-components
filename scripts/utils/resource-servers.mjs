@@ -41,10 +41,8 @@ export const MYORG_API_SCOPES = [
 ]
 
 // Scopes the Organization Super-Admin role holds, which the admin role created here must not get.
-// The admin role represents a typical organization admin, not a super-admin.
 export const SUPER_ADMIN_ONLY_SCOPES = ["delete:my_org:organizations"]
 
-// My Organization API permissions for the admin role.
 export const ADMIN_ROLE_SCOPES = MYORG_API_SCOPES.filter(
   (scope) => !SUPER_ADMIN_ONLY_SCOPES.includes(scope)
 )

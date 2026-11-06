@@ -63,9 +63,7 @@ function describeOtherDefaultIssues(template) {
  * Check if the default Organization Profile needs to be created or has drifted.
  * The tenant's default profile applies to every organization that has no profile of its own,
  * and creating an organization from My Account needs one that assigns an admin role.
- *
- * Drift is checked on the default flag, the deletion behavior, the admin role and the
- * connection and user attribute profile links. An ID that is not created yet counts as drift.
+ * An ID that is not created yet counts as drift.
  * @param {Array|null} existingTemplates - Result of fetchOrganizationTemplates
  * @param {object} refs - IDs to link: connectionProfileId, userAttributeProfileId, adminRoleId
  */
