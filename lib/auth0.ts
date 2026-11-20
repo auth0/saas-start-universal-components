@@ -51,6 +51,8 @@ const MY_ORG_SCOPES = [
   "update:my_org:identity_providers_provisioning",
   "read:my_org:identity_providers_provisioning",
   "delete:my_org:identity_providers_provisioning",
+  "read:my_org:identity_providers_tests",
+  "create:my_org:identity_providers_tests",
   "read:my_org:configuration",
   "read:my_org:user_stores",
   "read:my_org:member_invitations",
