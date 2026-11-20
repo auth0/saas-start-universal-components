@@ -26,6 +26,8 @@ export const MYORG_API_SCOPES = [
   "update:my_org:identity_providers_provisioning",
   "read:my_org:identity_providers_provisioning",
   "delete:my_org:identity_providers_provisioning",
+  "create:my_org:identity_providers_test",
+  "read:my_org:identity_providers_test",
   "read:my_org:configuration",
   "read:my_org:user_stores",
   "read:my_org:member_invitations",
