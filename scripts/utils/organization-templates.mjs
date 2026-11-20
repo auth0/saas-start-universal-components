@@ -8,6 +8,28 @@ import { ChangeAction, createChangeItem } from "./change-plan.mjs"
 export const ORGANIZATION_PROFILE_NAME = "SaaStart-Org-Profile"
 // Deleting an organization is only allowed when the caller is its only member.
 export const ORGANIZATION_DELETION_BEHAVIOR = "allow_if_empty"
+// New domains start off, and admins may switch discovery on or off.
+export const ORGANIZATION_DISCOVERY_POLICY = {
+  default_value: false,
+  allowed_values: [true, false],
+}
+
+/**
+ * Whether a profile's use_for_organization_discovery policy matches the one SaaStart needs.
+ */
+function discoveryPolicyMatches(policy) {
+  if (
+    !policy ||
+    policy.default_value !== ORGANIZATION_DISCOVERY_POLICY.default_value
+  ) {
+    return false
+  }
+  const sorted = (values) => JSON.stringify([...(values ?? [])].sort())
+  return (
+    sorted(policy.allowed_values) ===
+    sorted(ORGANIZATION_DISCOVERY_POLICY.allowed_values)
+  )
+}
 
 /**
  * The Auth0 CLI can succeed while printing the API's error body, so treat one as an error.
@@ -54,6 +76,15 @@ function describeOtherDefaultIssues(template) {
   ) {
     issues.push(
       `its organization_deletion_behavior is "${template.organization_deletion_behavior ?? "unset"}" rather than "${ORGANIZATION_DELETION_BEHAVIOR}"`
+    )
+  }
+  if (!template.use_for_organization_discovery) {
+    issues.push(
+      "it sets no use_for_organization_discovery policy (the discovery controls stay hidden)"
+    )
+  } else if (!discoveryPolicyMatches(template.use_for_organization_discovery)) {
+    issues.push(
+      "its use_for_organization_discovery policy differs from SaaStart's (default false, both values allowed), so the discovery switches may be locked or start on"
     )
   }
   return issues
@@ -137,6 +168,10 @@ export function checkOrganizationTemplateChanges(existingTemplates, refs) {
     updates.userAttributeProfile = true
     changes.push("Link the user attribute profile")
   }
+  if (!discoveryPolicyMatches(existing.use_for_organization_discovery)) {
+    updates.discovery = true
+    changes.push("Set the use_for_organization_discovery policy")
+  }
 
   if (changes.length === 0) {
     return createChangeItem(ChangeAction.SKIP, {
@@ -184,6 +219,32 @@ function buildTemplatePatch(updates, existing, refs) {
     patch.user_attribute_profile_id = refs.userAttributeProfileId
   }
   return patch
+}
+
+/**
+ * Set the discovery policy in its own request, so a tenant that rejects the field still gets the
+ * rest of the profile. A failure only warns.
+ * @returns {Promise<object|null>} The updated organization template, or null when it couldn't be set
+ */
+async function applyDiscoveryPolicy(templateId) {
+  const spinner = ora({
+    text: `Setting the organization discovery policy`,
+  }).start()
+  try {
+    const updated = throwIfApiError(
+      await auth0ApiCall("patch", `organization-templates/${templateId}`, {
+        use_for_organization_discovery: ORGANIZATION_DISCOVERY_POLICY,
+      }),
+      "the tenant didn't accept the policy (missing scope or field)"
+    )
+    spinner.succeed(`Set the organization discovery policy`)
+    return updated
+  } catch (e) {
+    spinner.warn(
+      `Could not set the organization discovery policy: ${e.message}`
+    )
+    return null
+  }
 }
 
 /**
@@ -241,6 +302,14 @@ export async function applyOrganizationTemplateChanges(changePlan, refs) {
     }
 
     spinner.succeed(`Configured the default Organization Profile`)
+
+    if (
+      changePlan.action === ChangeAction.CREATE ||
+      changePlan.updates?.discovery
+    ) {
+      // Keep the profile's own fields (such as its id) even if the response is partial
+      template = { ...template, ...(await applyDiscoveryPolicy(template.id)) }
+    }
     return template
   } catch (e) {
     spinner.warn(`Could not configure the Organization Profile: ${e.message}`)
