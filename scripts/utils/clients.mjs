@@ -9,6 +9,39 @@ export const APP_BASE_URL = "http://localhost:3000"
 export const MANAGEMENT_CLIENT_NAME = "SaaStart Management"
 export const DASHBOARD_CLIENT_NAME = "SaaStart Dashboard"
 
+// My Organization settings shared by the dashboard client and the default Organization Template.
+// A template that applies to an organization is used as a whole, so it must carry these too.
+export const MY_ORG_CONNECTION_DELETION_BEHAVIOR = "allow_if_empty"
+export const MY_ORG_ALLOWED_STRATEGIES = [
+  "pingfederate",
+  "adfs",
+  "waad",
+  "google-apps",
+  "okta",
+  "oidc",
+  "samlp",
+]
+export const MY_ORG_THIRD_PARTY_CLIENT_ACCESS = {
+  default_value: "block",
+  allowed_values: ["block", "allow"],
+}
+
+/** The settings above, plus the client that invitations land on. */
+export function myOrgSharedSettings(invitationLandingClientId) {
+  const settings = {
+    connection_deletion_behavior: MY_ORG_CONNECTION_DELETION_BEHAVIOR,
+    allowed_strategies: [...MY_ORG_ALLOWED_STRATEGIES],
+    third_party_client_access: {
+      ...MY_ORG_THIRD_PARTY_CLIENT_ACCESS,
+      allowed_values: [...MY_ORG_THIRD_PARTY_CLIENT_ACCESS.allowed_values],
+    },
+  }
+  if (invitationLandingClientId) {
+    settings.invitation_landing_client_id = invitationLandingClientId
+  }
+  return settings
+}
+
 const MANAGEMENT_API_SCOPES = [
   // Users
   "read:users",
@@ -651,20 +684,7 @@ export async function applyDashboardClientChanges(
           my_organization_configuration: {
             connection_profile_id: connectionProfileId,
             user_attribute_profile_id: userAttributeProfileId,
-            connection_deletion_behavior: "allow_if_empty",
-            allowed_strategies: [
-              "pingfederate",
-              "adfs",
-              "waad",
-              "google-apps",
-              "okta",
-              "oidc",
-              "samlp",
-            ],
-            third_party_client_access: {
-              default_value: "block",
-              allowed_values: ["block", "allow"],
-            },
+            ...myOrgSharedSettings(),
           },
         }),
       ];
@@ -677,21 +697,7 @@ export async function applyDashboardClientChanges(
         my_organization_configuration: {
           connection_profile_id: connectionProfileId,
           user_attribute_profile_id: userAttributeProfileId,
-          connection_deletion_behavior: "allow_if_empty",
-          invitation_landing_client_id: client.client_id,
-          allowed_strategies: [
-            "pingfederate",
-            "adfs",
-            "waad",
-            "google-apps",
-            "okta",
-            "oidc",
-            "samlp",
-          ],
-          third_party_client_access: {
-            default_value: "block",
-            allowed_values: ["block", "allow"],
-          },
+          ...myOrgSharedSettings(client.client_id),
         },
       })
 
@@ -744,21 +750,7 @@ export async function applyDashboardClientChanges(
         updateData.my_organization_configuration = {
           connection_profile_id: connectionProfileId,
           user_attribute_profile_id: userAttributeProfileId,
-          connection_deletion_behavior: "allow_if_empty",
-          invitation_landing_client_id: existing.client_id,
-          allowed_strategies: [
-            "pingfederate",
-            "adfs",
-            "waad",
-            "google-apps",
-            "okta",
-            "oidc",
-            "samlp",
-          ],
-          third_party_client_access: {
-            default_value: "block",
-            allowed_values: ["block", "allow"],
-          },
+          ...myOrgSharedSettings(existing.client_id),
         }
       }
 

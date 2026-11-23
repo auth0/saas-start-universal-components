@@ -2,10 +2,15 @@ import ora from "ora"
 
 import { auth0ApiCall } from "./auth0-api.mjs"
 import { ChangeAction, createChangeItem } from "./change-plan.mjs"
+import {
+  MY_ORG_ALLOWED_STRATEGIES,
+  MY_ORG_CONNECTION_DELETION_BEHAVIOR,
+  MY_ORG_THIRD_PARTY_CLIENT_ACCESS,
+  myOrgSharedSettings,
+} from "./clients.mjs"
 
 // Constants
-// The Management API calls Organization Profiles "organization templates".
-export const ORGANIZATION_PROFILE_NAME = "SaaStart-Org-Profile"
+export const ORGANIZATION_TEMPLATE_NAME = "SaaStart-Org-Template"
 // Deleting an organization is only allowed when the caller is its only member.
 export const ORGANIZATION_DELETION_BEHAVIOR = "allow_if_empty"
 // New domains start off, and admins may switch discovery on or off.
@@ -14,8 +19,12 @@ export const ORGANIZATION_DISCOVERY_POLICY = {
   allowed_values: [true, false],
 }
 
+const sameValues = (a, b) =>
+  JSON.stringify([...(a ?? [])].sort()) ===
+  JSON.stringify([...(b ?? [])].sort())
+
 /**
- * Whether a profile's use_for_organization_discovery policy matches the one SaaStart needs.
+ * Whether a template's use_for_organization_discovery policy matches the one SaaStart needs.
  */
 function discoveryPolicyMatches(policy) {
   if (
@@ -24,11 +33,49 @@ function discoveryPolicyMatches(policy) {
   ) {
     return false
   }
-  const sorted = (values) => JSON.stringify([...(values ?? [])].sort())
-  return (
-    sorted(policy.allowed_values) ===
-    sorted(ORGANIZATION_DISCOVERY_POLICY.allowed_values)
+  return sameValues(
+    policy.allowed_values,
+    ORGANIZATION_DISCOVERY_POLICY.allowed_values
   )
+}
+
+/**
+ * The My Organization settings on a template that differ from the dashboard client's.
+ * A dashboard client ID that is undefined has not been created yet, so it counts as different.
+ * @returns {string[]} Names of the fields that differ
+ */
+function myOrgSettingsDrift(template, dashboardClientId) {
+  const drift = []
+  if (
+    template.connection_deletion_behavior !==
+    MY_ORG_CONNECTION_DELETION_BEHAVIOR
+  ) {
+    drift.push("connection_deletion_behavior")
+  }
+  if (
+    !template.allowed_strategies ||
+    !sameValues(template.allowed_strategies, MY_ORG_ALLOWED_STRATEGIES)
+  ) {
+    drift.push("allowed_strategies")
+  }
+  if (
+    !dashboardClientId ||
+    template.invitation_landing_client_id !== dashboardClientId
+  ) {
+    drift.push("invitation_landing_client_id")
+  }
+  const access = template.third_party_client_access
+  if (
+    !access ||
+    access.default_value !== MY_ORG_THIRD_PARTY_CLIENT_ACCESS.default_value ||
+    !sameValues(
+      access.allowed_values,
+      MY_ORG_THIRD_PARTY_CLIENT_ACCESS.allowed_values
+    )
+  ) {
+    drift.push("third_party_client_access")
+  }
+  return drift
 }
 
 /**
@@ -63,10 +110,10 @@ export async function fetchOrganizationTemplates() {
 // ============================================================================
 
 /**
- * Describe how another default profile differs from what SaaStart needs.
+ * Describe how another default template differs from what SaaStart needs.
  * It is never changed, so these are only reported.
  */
-function describeOtherDefaultIssues(template) {
+function describeOtherDefaultIssues(template, dashboardClientId) {
   const issues = []
   if (!template.admin_roles_assignment?.length) {
     issues.push("it assigns no admin role (creating an organization needs one)")
@@ -87,42 +134,53 @@ function describeOtherDefaultIssues(template) {
       "its use_for_organization_discovery policy differs from SaaStart's (default false, both values allowed), so the discovery switches may be locked or start on"
     )
   }
+  const drift = myOrgSettingsDrift(template, dashboardClientId)
+  if (drift.length > 0) {
+    issues.push(`its ${drift.join(", ")} differ from the dashboard client's`)
+  }
   return issues
 }
 
 /**
- * Check if the default Organization Profile needs to be created or has drifted.
- * The tenant's default profile applies to every organization that has no profile of its own,
+ * Check if the default Organization Template needs to be created or has drifted.
+ * The tenant's default template applies to every organization that has no template of its own,
  * and creating an organization from My Account needs one that assigns an admin role.
+ * It also carries the My Organization settings shared with the dashboard client (connection
+ * deletion behavior, allowed strategies, invitation landing client, third-party client access).
  * An ID that is not created yet counts as drift.
  * @param {Array|null} existingTemplates - Result of fetchOrganizationTemplates
- * @param {object} refs - IDs to link: connectionProfileId, userAttributeProfileId, adminRoleId
+ * @param {object} refs - IDs to link: connectionProfileId, userAttributeProfileId, adminRoleId, dashboardClientId
  */
 export function checkOrganizationTemplateChanges(existingTemplates, refs) {
-  const { connectionProfileId, userAttributeProfileId, adminRoleId } = refs
+  const {
+    connectionProfileId,
+    userAttributeProfileId,
+    adminRoleId,
+    dashboardClientId,
+  } = refs
 
   if (existingTemplates === null) {
     return createChangeItem(ChangeAction.SKIP, {
-      resource: "Organization Profile",
-      name: ORGANIZATION_PROFILE_NAME,
-      note: "Organization Profiles are unavailable on this tenant (they must be enabled, and the Auth0 CLI login needs the read/create/update:organization_templates scopes)",
+      resource: "Organization Template",
+      name: ORGANIZATION_TEMPLATE_NAME,
+      note: "Organization Templates are unavailable on this tenant (they must be enabled, and the Auth0 CLI login needs the read/create/update:organization_templates scopes)",
     })
   }
 
   const existing = existingTemplates.find(
-    (t) => t.name === ORGANIZATION_PROFILE_NAME
+    (t) => t.name === ORGANIZATION_TEMPLATE_NAME
   )
 
-  // Never replace a default profile the tenant already uses; only report on it.
+  // Never replace a default template the tenant already uses; only report on it.
   const otherDefault = existingTemplates.find(
-    (t) => t.is_default && t.name !== ORGANIZATION_PROFILE_NAME
+    (t) => t.is_default && t.name !== ORGANIZATION_TEMPLATE_NAME
   )
   if (otherDefault && !existing?.is_default) {
-    const issues = describeOtherDefaultIssues(otherDefault)
+    const issues = describeOtherDefaultIssues(otherDefault, dashboardClientId)
     return createChangeItem(ChangeAction.SKIP, {
-      resource: "Organization Profile",
-      name: ORGANIZATION_PROFILE_NAME,
-      note: `"${otherDefault.name}" is already the default Organization Profile and was left unchanged${
+      resource: "Organization Template",
+      name: ORGANIZATION_TEMPLATE_NAME,
+      note: `"${otherDefault.name}" is already the default Organization Template and was left unchanged${
         issues.length > 0 ? `, but ${issues.join(" and ")}` : ""
       }`,
     })
@@ -130,8 +188,8 @@ export function checkOrganizationTemplateChanges(existingTemplates, refs) {
 
   if (!existing) {
     return createChangeItem(ChangeAction.CREATE, {
-      resource: "Organization Profile",
-      name: ORGANIZATION_PROFILE_NAME,
+      resource: "Organization Template",
+      name: ORGANIZATION_TEMPLATE_NAME,
     })
   }
 
@@ -140,7 +198,7 @@ export function checkOrganizationTemplateChanges(existingTemplates, refs) {
 
   if (!existing.is_default) {
     updates.makeDefault = true
-    changes.push("Make it the default Organization Profile")
+    changes.push("Make it the default Organization Template")
   }
   if (
     existing.organization_deletion_behavior !== ORGANIZATION_DELETION_BEHAVIOR
@@ -168,6 +226,11 @@ export function checkOrganizationTemplateChanges(existingTemplates, refs) {
     updates.userAttributeProfile = true
     changes.push("Link the user attribute profile")
   }
+  const myOrgDrift = myOrgSettingsDrift(existing, dashboardClientId)
+  if (myOrgDrift.length > 0) {
+    updates.myOrgSettings = true
+    changes.push(`Set ${myOrgDrift.join(", ")} to match the dashboard client`)
+  }
   if (!discoveryPolicyMatches(existing.use_for_organization_discovery)) {
     updates.discovery = true
     changes.push("Set the use_for_organization_discovery policy")
@@ -175,15 +238,15 @@ export function checkOrganizationTemplateChanges(existingTemplates, refs) {
 
   if (changes.length === 0) {
     return createChangeItem(ChangeAction.SKIP, {
-      resource: "Organization Profile",
-      name: ORGANIZATION_PROFILE_NAME,
+      resource: "Organization Template",
+      name: ORGANIZATION_TEMPLATE_NAME,
       existing,
     })
   }
 
   return createChangeItem(ChangeAction.UPDATE, {
-    resource: "Organization Profile",
-    name: ORGANIZATION_PROFILE_NAME,
+    resource: "Organization Template",
+    name: ORGANIZATION_TEMPLATE_NAME,
     existing,
     updates: { ...updates, changes },
     summary: changes.join(", "),
@@ -204,7 +267,7 @@ function buildTemplatePatch(updates, existing, refs) {
     patch.organization_deletion_behavior = ORGANIZATION_DELETION_BEHAVIOR
   }
   if (updates.adminRole && refs.adminRoleId) {
-    // Keep any roles that were added to the profile by hand.
+    // Keep any roles that were added to the template by hand.
     patch.admin_roles_assignment = [
       ...new Set([
         ...(existing.admin_roles_assignment ?? []),
@@ -218,12 +281,15 @@ function buildTemplatePatch(updates, existing, refs) {
   if (updates.userAttributeProfile && refs.userAttributeProfileId) {
     patch.user_attribute_profile_id = refs.userAttributeProfileId
   }
+  if (updates.myOrgSettings) {
+    Object.assign(patch, myOrgSharedSettings(refs.dashboardClientId))
+  }
   return patch
 }
 
 /**
  * Set the discovery policy in its own request, so a tenant that rejects the field still gets the
- * rest of the profile. A failure only warns.
+ * rest of the template. A failure only warns.
  * @returns {Promise<object|null>} The updated organization template, or null when it couldn't be set
  */
 async function applyDiscoveryPolicy(templateId) {
@@ -248,29 +314,34 @@ async function applyDiscoveryPolicy(templateId) {
 }
 
 /**
- * Apply Organization Profile changes.
+ * Apply Organization Template changes.
  * Failures are reported as warnings so the rest of the bootstrap still completes.
  * @param {object} changePlan - Change item from checkOrganizationTemplateChanges
- * @param {object} refs - IDs to link: connectionProfileId, userAttributeProfileId, adminRoleId
+ * @param {object} refs - IDs to link: connectionProfileId, userAttributeProfileId, adminRoleId, dashboardClientId
  * @returns {Promise<object|null>} The organization template, or null when unavailable
  */
 export async function applyOrganizationTemplateChanges(changePlan, refs) {
-  const { connectionProfileId, userAttributeProfileId, adminRoleId } = refs
+  const {
+    connectionProfileId,
+    userAttributeProfileId,
+    adminRoleId,
+    dashboardClientId,
+  } = refs
 
   if (changePlan.action === ChangeAction.SKIP && !changePlan.existing) {
-    const spinner = ora({ text: `Organization Profile` }).start()
-    spinner.warn(`Skipped Organization Profile: ${changePlan.note}`)
+    const spinner = ora({ text: `Organization Template` }).start()
+    spinner.warn(`Skipped Organization Template: ${changePlan.note}`)
     return null
   }
 
   if (changePlan.action === ChangeAction.SKIP) {
-    const spinner = ora({ text: `Organization Profile is up to date` }).start()
+    const spinner = ora({ text: `Organization Template is up to date` }).start()
     spinner.succeed()
     return changePlan.existing
   }
 
   const spinner = ora({
-    text: `Configuring the default Organization Profile`,
+    text: `Configuring the default Organization Template`,
   }).start()
 
   try {
@@ -278,7 +349,7 @@ export async function applyOrganizationTemplateChanges(changePlan, refs) {
 
     if (changePlan.action === ChangeAction.CREATE) {
       template = await auth0ApiCall("post", "organization-templates", {
-        name: ORGANIZATION_PROFILE_NAME,
+        name: ORGANIZATION_TEMPLATE_NAME,
         is_default: true,
         organization_deletion_behavior: ORGANIZATION_DELETION_BEHAVIOR,
         enforce_permission_ceiling: false,
@@ -287,6 +358,8 @@ export async function applyOrganizationTemplateChanges(changePlan, refs) {
         user_attribute_profile_id: userAttributeProfileId ?? null,
         // Roles given to the user who creates an organization from My Account.
         admin_roles_assignment: adminRoleId ? [adminRoleId] : null,
+        // The same My Organization settings as the dashboard client, which already exists here.
+        ...myOrgSharedSettings(dashboardClientId),
       })
       throwIfApiError(template, "Missing scope create:organization_templates")
     } else if (changePlan.action === ChangeAction.UPDATE) {
@@ -301,18 +374,18 @@ export async function applyOrganizationTemplateChanges(changePlan, refs) {
       }
     }
 
-    spinner.succeed(`Configured the default Organization Profile`)
+    spinner.succeed(`Configured the default Organization Template`)
 
     if (
       changePlan.action === ChangeAction.CREATE ||
       changePlan.updates?.discovery
     ) {
-      // Keep the profile's own fields (such as its id) even if the response is partial
+      // Keep the template's own fields (such as its id) even if the response is partial
       template = { ...template, ...(await applyDiscoveryPolicy(template.id)) }
     }
     return template
   } catch (e) {
-    spinner.warn(`Could not configure the Organization Profile: ${e.message}`)
+    spinner.warn(`Could not configure the Organization Template: ${e.message}`)
     return null
   }
 }

@@ -97,7 +97,7 @@ export async function discoverExistingResources(domain) {
     resources.userAttributeProfiles =
       userAttributeProfiles?.user_attribute_profiles || []
 
-    // Get organization templates (Organization Profiles); null when unavailable
+    // Get Organization Templates; null when unavailable
     resources.organizationTemplates = await fetchOrganizationTemplates()
 
     spinner.succeed("Resource discovery complete")
@@ -220,13 +220,14 @@ export async function buildChangePlan(resources, domain) {
     )
     plan.roles.member = checkMemberRoleChanges(resources.roles)
 
-    // Default Organization Profile (deletion behavior and the admin role for new organizations)
+    // Default Organization Template (deletion behavior and the admin role for new organizations)
     plan.organizationTemplate = checkOrganizationTemplateChanges(
       resources.organizationTemplates,
       {
         connectionProfileId: plan.connectionProfile.existing?.id,
         userAttributeProfileId: plan.userAttributeProfile.existing?.id,
         adminRoleId: plan.roles.admin.existing?.id,
+        dashboardClientId: plan.clients.dashboard.existing?.client_id,
       }
     )
 
@@ -503,7 +504,7 @@ export function displayChangePlan(plan) {
     showDetails(plan.myAccountResourceServer, "My Account API")
     showDetails(plan.roles.admin, "Admin Role")
     showDetails(plan.roles.member, "Member Role")
-    showDetails(plan.organizationTemplate, "Organization Profile")
+    showDetails(plan.organizationTemplate, "Organization Template")
     showDetails(plan.tenantConfig.mfaFactors, "MFA Factors")
 
     // Action bindings
