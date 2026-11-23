@@ -232,12 +232,13 @@ async function main() {
   const memberRole = await applyMemberRoleChanges(plan.roles.member)
   console.log("")
 
-  // 7j. Default Organization Profile (needs the admin role and both profiles)
-  console.log("Configuring Organization Profile...")
+  // 7j. Default Organization Template (needs the admin role, both profiles and the dashboard client)
+  console.log("Configuring Organization Template...")
   await applyOrganizationTemplateChanges(plan.organizationTemplate, {
     connectionProfileId: connectionProfile.id,
     userAttributeProfileId: userAttributeProfile.id,
     adminRoleId: adminRole.id,
+    dashboardClientId: dashboardClient.client_id,
   })
   console.log("")
 
