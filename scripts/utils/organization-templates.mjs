@@ -10,8 +10,7 @@ import {
 } from "./clients.mjs"
 
 // Constants
-// The name predates the "Organization Template" wording; it is kept so existing tenants still match.
-export const ORGANIZATION_PROFILE_NAME = "SaaStart-Org-Profile"
+export const ORGANIZATION_TEMPLATE_NAME = "SaaStart-Org-Template"
 // Deleting an organization is only allowed when the caller is its only member.
 export const ORGANIZATION_DELETION_BEHAVIOR = "allow_if_empty"
 // New domains start off, and admins may switch discovery on or off.
@@ -163,24 +162,24 @@ export function checkOrganizationTemplateChanges(existingTemplates, refs) {
   if (existingTemplates === null) {
     return createChangeItem(ChangeAction.SKIP, {
       resource: "Organization Template",
-      name: ORGANIZATION_PROFILE_NAME,
+      name: ORGANIZATION_TEMPLATE_NAME,
       note: "Organization Templates are unavailable on this tenant (they must be enabled, and the Auth0 CLI login needs the read/create/update:organization_templates scopes)",
     })
   }
 
   const existing = existingTemplates.find(
-    (t) => t.name === ORGANIZATION_PROFILE_NAME
+    (t) => t.name === ORGANIZATION_TEMPLATE_NAME
   )
 
   // Never replace a default template the tenant already uses; only report on it.
   const otherDefault = existingTemplates.find(
-    (t) => t.is_default && t.name !== ORGANIZATION_PROFILE_NAME
+    (t) => t.is_default && t.name !== ORGANIZATION_TEMPLATE_NAME
   )
   if (otherDefault && !existing?.is_default) {
     const issues = describeOtherDefaultIssues(otherDefault, dashboardClientId)
     return createChangeItem(ChangeAction.SKIP, {
       resource: "Organization Template",
-      name: ORGANIZATION_PROFILE_NAME,
+      name: ORGANIZATION_TEMPLATE_NAME,
       note: `"${otherDefault.name}" is already the default Organization Template and was left unchanged${
         issues.length > 0 ? `, but ${issues.join(" and ")}` : ""
       }`,
@@ -190,7 +189,7 @@ export function checkOrganizationTemplateChanges(existingTemplates, refs) {
   if (!existing) {
     return createChangeItem(ChangeAction.CREATE, {
       resource: "Organization Template",
-      name: ORGANIZATION_PROFILE_NAME,
+      name: ORGANIZATION_TEMPLATE_NAME,
     })
   }
 
@@ -240,14 +239,14 @@ export function checkOrganizationTemplateChanges(existingTemplates, refs) {
   if (changes.length === 0) {
     return createChangeItem(ChangeAction.SKIP, {
       resource: "Organization Template",
-      name: ORGANIZATION_PROFILE_NAME,
+      name: ORGANIZATION_TEMPLATE_NAME,
       existing,
     })
   }
 
   return createChangeItem(ChangeAction.UPDATE, {
     resource: "Organization Template",
-    name: ORGANIZATION_PROFILE_NAME,
+    name: ORGANIZATION_TEMPLATE_NAME,
     existing,
     updates: { ...updates, changes },
     summary: changes.join(", "),
@@ -350,7 +349,7 @@ export async function applyOrganizationTemplateChanges(changePlan, refs) {
 
     if (changePlan.action === ChangeAction.CREATE) {
       template = await auth0ApiCall("post", "organization-templates", {
-        name: ORGANIZATION_PROFILE_NAME,
+        name: ORGANIZATION_TEMPLATE_NAME,
         is_default: true,
         organization_deletion_behavior: ORGANIZATION_DELETION_BEHAVIOR,
         enforce_permission_ceiling: false,
