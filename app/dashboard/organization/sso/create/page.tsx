@@ -15,6 +15,14 @@ export default function SsoProviderCreatePage() {
     router.push('/dashboard/organization/sso');
   }, []);
 
+  const completeGuidedSetupAction = useMemo(
+    () => ({
+      onAfter: (_data: unknown, provider?: { id?: string }) =>
+        router.push(provider?.id ? `/dashboard/organization/sso/edit/${provider.id}` : '/dashboard/organization/sso'),
+    }),
+    [router],
+  );
+
   const createAction = useMemo(
     () => ({
       onAfter: handleCreate,
@@ -24,7 +32,7 @@ export default function SsoProviderCreatePage() {
 
   return (
     <div className="p-6 pt-8 space-y-6">
-      <SsoProviderCreate createAction={createAction} backButton={{ onClick: handleBack }} />
+      <SsoProviderCreate createAction={createAction} backButton={{ onClick: handleBack }} completeGuidedSetupAction={completeGuidedSetupAction} />
     </div>
   );
 }
