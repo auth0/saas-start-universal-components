@@ -5,23 +5,9 @@ import { appClient, onboardingClient } from "./lib/auth0" // Adjust path if your
 export async function middleware(request: NextRequest) {
   if (request.url.includes("/onboarding")) {
     return await onboardingClient.middleware(request)
+  } else {
+    return await appClient.middleware(request)
   }
-
-  const response = await appClient.middleware(request)
-
-  // Vercel treats a middleware response with a Location header as a redirect and drops
-  // its body, even when the status is not a redirect. The My Organization API sends
-  // Location on 201 responses (such as starting an identity provider test), so remove
-  // it from proxied responses that are not redirects to keep the body.
-  if (
-    request.nextUrl.pathname.startsWith("/my-org/") &&
-    response.headers.has("location") &&
-    (response.status < 300 || response.status >= 400)
-  ) {
-    response.headers.delete("location")
-  }
-
-  return response
 }
 
 export const config = {
